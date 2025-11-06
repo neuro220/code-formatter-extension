@@ -1,12 +1,7 @@
 # Code Formatter - JSON, CSS & JavaScript
 
-<p align="center">
-  <img width="830" height="auto" src="https://zerowp.com/wp-content/uploads/2023/11/1-1024x640.jpg">
-</p>
 
-## [Add to Chrome](https://chromewebstore.google.com/detail/bhimnoepicmcjfkbmhckamllnibadfal?hl=en)
-
-A Chrome extension that makes CSS, JSON, and JavaScript more readable in the browser with syntax highlighting, line numbers, and collapsible sections.
+## A Firefox extension that makes CSS, JSON, and JavaScript more readable in the browser with syntax highlighting, line numbers, and collapsible sections.
 
 You know how frustrating it is to read code that's not formatted correctly or is minified.
 
@@ -49,6 +44,6 @@ A treasure for developers and not only.
 
 **Private and secure** - collects no user data.
 
-## [Get it on Chrome Web Store](https://chromewebstore.google.com/detail/bhimnoepicmcjfkbmhckamllnibadfal?hl=en)
+### This project is modified from [zerowp/code-formatter](https://github.com/zerowp/code-formatter), originally created by zerowp
 
 
