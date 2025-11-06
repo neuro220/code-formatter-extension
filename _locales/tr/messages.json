@@ -1,0 +1,26 @@
+{
+  "extName": {
+    "message": "Code Formatter - JSON, CSS ve JavaScript."
+  },
+  "extDescription": {
+    "message": "Code Formatter - CSS, JSON ve JavaScript için gelişmiş sözdizimi vurgulama sunan hepsi bir arada uzantı. "
+  },
+  "extShortName": {
+    "message": "Code Formatter"
+  },
+  "copy": {
+    "message": "Anlaşıldı"
+  },
+  "download": {
+    "message": "İndir"
+  },
+  "showOriginal": {
+    "message": "Orijinalini göster"
+  },
+  "showFormatted": {
+    "message": "Biçimlendirilmiş göster "
+  },
+  "networkResponseError": {
+    "message": "Ağ yanıtı iyi değildi."
+  }
+}
