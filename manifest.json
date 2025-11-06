@@ -1,0 +1,26 @@
+ {
+  "name": "__MSG_extName__",
+  "version": "1.6.2",
+  "manifest_version": 3,
+  "description": "__MSG_extDescription__",
+  "homepage_url": "https://zerowp.com/code-formatter",
+  "icons": {
+    "128": "icons/128.png",
+    "48": "icons/48.png",
+    "32": "icons/32.png",
+    "16": "icons/16.png"
+  },
+  "background": {
+    "scripts": ["background.min.js"]
+  },
+  "permissions": [
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "file:///*"
+  ],
+  "default_locale": "en"
+}
