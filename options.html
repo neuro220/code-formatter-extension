@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'; object-src 'none'; base-uri 'none'">
+    <title>Code Formatter Options</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        label { display: block; margin: 10px 0 5px; }
+        select, input { padding: 5px; }
+        button { padding: 10px 20px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Code Formatter Settings</h1>
+    <form id="options-form">
+        <label for="indent-size">Indent Size:</label>
+        <select id="indent-size">
+            <option value="2">2 spaces</option>
+            <option value="4">4 spaces</option>
+            <option value="tab">Tab</option>
+        </select>
+
+        <label for="quote-style">Quote Style:</label>
+        <select id="quote-style">
+            <option value="single">Single quotes</option>
+            <option value="double">Double quotes</option>
+        </select>
+
+        <label for="line-wrap">Line Wrap:</label>
+        <input type="number" id="line-wrap" value="80" min="40" max="200">
+
+        <label for="theme">Theme:</label>
+        <select id="theme">
+            <option value="dracula">Dracula (Dark)</option>
+            <option value="github-light">GitHub Light</option>
+            <option value="solarized-light">Solarized Light</option>
+            <option value="material">Material</option>
+        </select>
+
+        <label for="wrap-lines">
+            <input type="checkbox" id="wrap-lines"> Wrap long lines
+        </label>
+
+        <label for="font-size">Font Size:</label>
+        <select id="font-size">
+            <option value="12">12px</option>
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+            <option value="18">18px</option>
+            <option value="20">20px</option>
+        </select>
+
+        <button type="submit">Save Settings</button>
+    </form>
+    <script src="options.js"></script>
+</body>
+</html>

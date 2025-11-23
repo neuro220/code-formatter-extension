@@ -1,9 +1,15 @@
 import logo from './logo';
 import beautifyJS from 'js-beautify';
+import prettier from 'prettier';
 import {basicSetup} from "codemirror";
 import {EditorView} from "@codemirror/view";
 import {EditorState} from "@codemirror/state";
+import {keymap} from "@codemirror/view";
+import {searchKeymap, highlightSelectionMatches} from "@codemirror/search";
 import {dracula} from 'thememirror';
+import {githubLight} from 'thememirror';
+import {solarizedLight} from 'thememirror';
+import {material} from 'thememirror';
 import {javascript} from "@codemirror/lang-javascript";
 import {css} from "@codemirror/lang-css";
 import {json} from "@codemirror/lang-json";
@@ -33,17 +39,78 @@ const i18n = {
     showFormatted: chrome.i18n.getMessage('showFormatted'),
 };
 
+// Default settings
+let settings = {
+    indentSize: 2,
+    quoteStyle: 'single',
+    lineWrap: 80,
+    theme: 'dracula',
+    wrapLines: false,
+    fontSize: '14'
+};
+
+// Load settings
+chrome.storage.sync.get(['indentSize', 'quoteStyle', 'lineWrap', 'theme', 'wrapLines', 'fontSize'], function(result) {
+    if (result.indentSize) settings.indentSize = result.indentSize;
+    if (result.quoteStyle) settings.quoteStyle = result.quoteStyle;
+    if (result.lineWrap) settings.lineWrap = result.lineWrap;
+    if (result.theme) settings.theme = result.theme;
+    if (result.wrapLines !== undefined) settings.wrapLines = result.wrapLines;
+    if (result.fontSize) settings.fontSize = result.fontSize;
+});
+
 function beautify(code: string, language: string): string {
-    // if language is not in array, return code
-    if (!['js', 'css', 'json'].includes(language)) {
-        return code;``
-    }
+    try {
+        // Validate JSON before attempting to beautify
+        if (language === 'json') {
+            JSON.parse(code);
+        }
 
-    if (language === 'css') {
-        return cssBeautify(code);
-    }
+        // if language is not in array, return code
+        if (!['js', 'css', 'json', 'html', 'xml'].includes(language)) {
+            return code;
+        }
 
-    return jsBeautify(code);
+        if (language === 'css') {
+            return cssBeautify(code, {
+                indent_size: settings.indentSize === 'tab' ? 1 : settings.indentSize,
+                indent_with_tabs: settings.indentSize === 'tab'
+            });
+        }
+
+        if (language === 'html' || language === 'xml') {
+            return prettier.format(code, {
+                parser: 'html',
+                printWidth: settings.lineWrap,
+                tabWidth: settings.indentSize === 'tab' ? 4 : settings.indentSize,
+                useTabs: settings.indentSize === 'tab',
+                singleQuote: settings.quoteStyle === 'single'
+            });
+        }
+
+        return jsBeautify(code, {
+            indent_size: settings.indentSize === 'tab' ? 1 : settings.indentSize,
+            indent_with_tabs: settings.indentSize === 'tab',
+            max_preserve_newlines: 2,
+            preserve_newlines: true,
+            keep_array_indentation: false,
+            break_chained_methods: false,
+            indent_scripts: 'normal',
+            brace_style: 'collapse',
+            space_before_conditional: true,
+            unescape_strings: false,
+            jslint_happy: false,
+            end_with_newline: false,
+            wrap_line_length: settings.lineWrap,
+            indent_inner_html: false,
+            comma_first: false,
+            e4x: false,
+            indent_empty_lines: false
+        });
+    } catch (e) {
+        console.warn('[Code Formatter] Beautification failed for', language, ':', e);
+        return code; // Return original code if beautification fails
+    }
 }
 
 let currentView = 'original';
@@ -65,9 +132,14 @@ function initFormatter() {
             const bodyText = document.body.innerText.trim();
             if (bodyText) {
                 // Check if it's JSON or other code content
-                if (bodyText.startsWith('{') || bodyText.startsWith('[') || 
+                if (bodyText.startsWith('{') || bodyText.startsWith('[') ||
                     bodyText.includes('function') || bodyText.includes('var') ||
-                    bodyText.includes('const') || bodyText.includes('let')) {
+                    bodyText.includes('const') || bodyText.includes('let') ||
+                    bodyText.includes('import') || bodyText.includes('class') ||
+                    bodyText.includes('def ') || bodyText.includes('public class') ||
+                    bodyText.includes('package ') || bodyText.includes('#include') ||
+                    bodyText.includes('fn ') || bodyText.includes('SELECT') ||
+                    bodyText.includes('---') || bodyText.includes('<?xml')) {
                     // Create a pre tag to hold the content
                     const firstPre = document.createElement('pre') as HTMLPreElement;
                     firstPre.textContent = bodyText;
@@ -112,6 +184,12 @@ function initFormatter() {
     let IS_FORMATTED = false;
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        // Validate sender
+        if (!sender.id || sender.id !== chrome.runtime.id) {
+            sendResponse({status: 'invalid_sender'});
+            return;
+        }
+
         if (IS_FORMATTED) {
             sendResponse({status: 'already_formatted'});
             return;
@@ -226,7 +304,20 @@ function initFormatter() {
             return;
         }
 
-        const extensions = [basicSetup, dracula];
+        const themeMap = {
+            'dracula': dracula,
+            'github-light': githubLight,
+            'solarized-light': solarizedLight,
+            'material': material
+        };
+
+        const selectedTheme = themeMap[settings.theme] || dracula;
+
+        const extensions = [basicSetup, selectedTheme, highlightSelectionMatches(), keymap.of(searchKeymap)];
+
+        if (settings.wrapLines) {
+            extensions.push(EditorView.lineWrapping);
+        }
 
         firstPre!.hidden = true;
         firstPre!.style.display = 'none';
@@ -246,10 +337,13 @@ function initFormatter() {
             extensions
         });
 
-        new EditorView({
+        const view = new EditorView({
             parent: renderer,
             state,
         });
+
+        // Apply font size
+        renderer.style.fontSize = settings.fontSize + 'px';
 
         currentView = 'formatted';
         IS_FORMATTED = true;
@@ -259,16 +353,60 @@ function initFormatter() {
 
         document.body.classList.remove(`code-formatter-is-loading`);
 
-        document.body.insertAdjacentHTML('beforeend', `<div class="code-formatter-toolbar">
-        <div class="code-formatter-toolbar__logo">
-                ${logo}
-            </div>
-            <div class="code-formatter-toolbar__logo-text"><a href="https://zerowp.com/code-formatter/" target="_blank">${i18n.extShortName}</a></div>
-            <div></div>
-            <div><button class="code-formatter-toolbar__button code-formatter-toolbar__button__switch" id="code-formatter-switcher-button">${i18n.showOriginal}</button></div>
-            <div><button class="code-formatter-toolbar__button code-formatter-toolbar__button__copy" id="code-formatter-toolbar-button-copy">${i18n.copy}</button></div>
-            <div><button class="code-formatter-toolbar__button code-formatter-toolbar__button__download" id="code-formatter-toolbar-button-download">${i18n.download}</button></div>
-        </div>`);
+        // Create toolbar using DOM methods for security
+        const toolbar = document.createElement('div');
+        toolbar.className = 'code-formatter-toolbar';
+
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'code-formatter-toolbar__logo';
+        logoDiv.innerHTML = logo;
+        toolbar.appendChild(logoDiv);
+
+        const logoTextDiv = document.createElement('div');
+        logoTextDiv.className = 'code-formatter-toolbar__logo-text';
+        const logoLink = document.createElement('a');
+        logoLink.href = 'https://zerowp.com/code-formatter/';
+        logoLink.target = '_blank';
+        logoLink.textContent = i18n.extShortName;
+        logoTextDiv.appendChild(logoLink);
+        toolbar.appendChild(logoTextDiv);
+
+        const spacerDiv = document.createElement('div');
+        toolbar.appendChild(spacerDiv);
+
+        const switchDiv = document.createElement('div');
+        const switchButton = document.createElement('button');
+        switchButton.className = 'code-formatter-toolbar__button code-formatter-toolbar__button__switch';
+        switchButton.id = 'code-formatter-switcher-button';
+        switchButton.textContent = i18n.showOriginal;
+        switchDiv.appendChild(switchButton);
+        toolbar.appendChild(switchDiv);
+
+        const minifyDiv = document.createElement('div');
+        const minifyButton = document.createElement('button');
+        minifyButton.className = 'code-formatter-toolbar__button code-formatter-toolbar__button__minify';
+        minifyButton.id = 'code-formatter-toolbar-button-minify';
+        minifyButton.textContent = 'Minify';
+        minifyDiv.appendChild(minifyButton);
+        toolbar.appendChild(minifyDiv);
+
+        const copyDiv = document.createElement('div');
+        const copyButton = document.createElement('button');
+        copyButton.className = 'code-formatter-toolbar__button code-formatter-toolbar__button__copy';
+        copyButton.id = 'code-formatter-toolbar-button-copy';
+        copyButton.textContent = i18n.copy;
+        copyDiv.appendChild(copyButton);
+        toolbar.appendChild(copyDiv);
+
+        const downloadDiv = document.createElement('div');
+        const downloadButton = document.createElement('button');
+        downloadButton.className = 'code-formatter-toolbar__button code-formatter-toolbar__button__download';
+        downloadButton.id = 'code-formatter-toolbar-button-download';
+        downloadButton.textContent = i18n.download;
+        downloadDiv.appendChild(downloadButton);
+        toolbar.appendChild(downloadDiv);
+
+        document.body.appendChild(toolbar);
 
         firstPre!.style.overflow = 'auto';
         // firstPre!.style.height = 'calc(100vh - 40px)';
@@ -306,6 +444,9 @@ function initFormatter() {
 
             } else if (targetElement.id === 'code-formatter-toolbar-button-copy') {
                 navigator && navigator.clipboard && navigator.clipboard.writeText(currentView === 'original' ? originalCode : beautified);
+            } else if (targetElement.id === 'code-formatter-toolbar-button-minify') {
+                // Placeholder for minification
+                alert('Minification feature coming soon!');
             } else if (targetElement.id === 'code-formatter-toolbar-button-download') {
                 const a = document.createElement('a');
                 a.href = `data:text/plain;charset=utf-8,${encodeURIComponent(currentView === 'original' ? originalCode : beautified)}`;
@@ -316,6 +457,28 @@ function initFormatter() {
             }
         });
 
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key) {
+                case 's':
+                    e.preventDefault();
+                    document.getElementById('code-formatter-switcher-button')?.click();
+                    break;
+                case 'c':
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        document.getElementById('code-formatter-toolbar-button-copy')?.click();
+                    }
+                    break;
+                case 'd':
+                    e.preventDefault();
+                    document.getElementById('code-formatter-toolbar-button-download')?.click();
+                    break;
+            }
+        }
     });
 
 }

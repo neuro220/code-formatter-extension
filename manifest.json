@@ -1,9 +1,8 @@
  {
   "name": "__MSG_extName__",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "manifest_version": 3,
   "description": "__MSG_extDescription__",
-  "homepage_url": "https://zerowp.com/code-formatter",
   "icons": {
     "128": "icons/128.png",
     "48": "icons/48.png",
@@ -15,12 +14,24 @@
   },
   "permissions": [
     "scripting",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "http://*/*",
     "https://*/*",
     "file:///*"
   ],
+  "options_ui": {
+    "page": "options.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "FirefoxCodeFormatter@example.org",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "default_locale": "en"
 }
