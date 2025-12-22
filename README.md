@@ -44,7 +44,3 @@ A treasure for developers and not only.
 **Private and secure** - collects no user data.
 
 ### This project is modified from [awps/code-formatter-extension](https://github.com/awps/code-formatter-extension), originally created by zerowp
-
-**Private and secure** - collects no user data.
-
-### This project is modified from [awps/code-formatter-extension](https://github.com/awps/code-formatter-extension), originally created by zerowp
