@@ -1,0 +1,26 @@
+{
+  "extName": {
+    "message": "Code Formatter - JSON, CSS et JavaScript "
+  },
+  "extDescription": {
+    "message": "Code Formatter - extension complète qui fournit une coloration syntaxique sophistiquée pour CSS, JSON et JavaScript."
+  },
+  "extShortName": {
+    "message": "Code Formatter"
+  },
+  "copy": {
+    "message": " Copier "
+  },
+  "download": {
+    "message": "Télécharger"
+  },
+  "showOriginal": {
+    "message": " Afficher l'original "
+  },
+  "showFormatted": {
+    "message": "Affichage formaté"
+  },
+  "networkResponseError": {
+    "message": "La réponse du réseau n'était pas correcte."
+  }
+}
