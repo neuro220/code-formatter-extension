@@ -1,6 +1,6 @@
 {
   "name": "__MSG_extName__",
-  "version": "1.8.0",
+  "version": "1.9.1",
   "manifest_version": 3,
   "description": "__MSG_extDescription__",
   "action": {
@@ -26,10 +26,19 @@
       "match_about_blank": true
     }
   ],
-  "permissions": ["scripting", "tabs", "storage"],
+  "permissions": ["scripting", "tabs", "storage", "contextMenus"],
   "host_permissions": ["<all_urls>"],
   "options_ui": {
     "page": "options.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["wasm/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "browser_specific_settings": {
     "gecko": {

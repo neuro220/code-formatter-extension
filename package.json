@@ -1,0 +1,63 @@
+{
+  "name": "code-formatter-extension",
+  "version": "1.9.1",
+  "description": "Code Formatter - Format and beautify code in your browser",
+  "scripts": {
+    "build": "node esbuild.config.js && npm run build:css",
+    "build:ts": "node esbuild.config.js",
+    "build:css": "sass src/css/content.scss css/content.min.css --style=compressed --no-source-map",
+    "clean": "rm -f background.min.js content.min.js options.js changelog.js css/content.min.css",
+    "dev": "node esbuild.config.js --watch",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package:chrome": "npm run build && zip -r code-formatter-chrome.zip . -x '*.map' 'node_modules/*' 'src/*' '.git/*' '*.md' '.gitignore' 'INSTALL.md' 'README.md' 'package.json' 'package-lock.json' 'tsconfig.json' 'vitest.config.ts' 'esbuild.config.js' '.tmp/*' '_locales/Base.txt' '*Zone.Identifier' '.prettierrc.json' '.eslintrc.json' '.prettierignore' 'code-formatter-firefox.zip'",
+    "package:firefox": "npm run build && zip -r code-formatter-firefox.zip . -x '*.map' 'node_modules/*' 'src/*' '.git/*' '*.md' '.gitignore' 'INSTALL.md' 'README.md' 'package.json' 'package-lock.json' 'tsconfig.json' 'vitest.config.ts' 'esbuild.config.js' '.tmp/*' '_locales/Base.txt' '*Zone.Identifier' '.prettierrc.json' '.eslintrc.json' '.prettierignore' 'code-formatter-chrome.zip'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "firefox-extension",
+    "code-formatter",
+    "prettier",
+    "codemirror"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "esbuild": "^0.19.0",
+    "eslint": "^8.0.0",
+    "sass": "^1.69.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.6",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.11",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.12.1",
+    "@codemirror/lint": "^6.9.4",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.39.13",
+    "@lezer/highlight": "^1.2.3",
+    "@uiw/codemirror-theme-dracula": "^4.25.4",
+    "@uiw/codemirror-theme-nord": "^4.25.4",
+    "@wasm-fmt/biome_fmt": "^0.2.3",
+    "@wasm-fmt/gofmt": "^0.7.2",
+    "@wasm-fmt/ruff_fmt": "^0.15.0",
+    "@wasm-fmt/sql_fmt": "^0.2.1",
+    "@wasm-fmt/taplo_fmt": "^0.2.5",
+    "@wasm-fmt/yamlfmt": "^0.2.1",
+    "codemirror": "^6.0.2",
+    "js-beautify": "^1.14.0",
+    "prettier": "^3.8.1"
+  }
+}
