@@ -29,11 +29,11 @@ $success: #73c991;
 $warning: #cca700;
 
 $font-ui:
-  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
   sans-serif;
 $font-mono:
-  'Cascadia Code', 'Fira Code', 'SF Mono', 'JetBrains Mono', Consolas,
-  'Courier New', monospace;
+  "Cascadia Code", "Fira Code", "SF Mono", "JetBrains Mono", Consolas,
+  "Courier New", monospace;
 
 $radius-sm: 4px;
 $radius-md: 6px;
@@ -217,6 +217,27 @@ body.code-formatter-is-loaded {
   &:focus-visible {
     outline: 1px solid $border-focus;
     outline-offset: -1px;
+  }
+
+  // Active state for toggle buttons (feature is ON)
+  &.active {
+    background: rgba($accent, 0.2);
+    color: #e0e0e0;
+
+    svg {
+      opacity: 1;
+      color: $accent;
+    }
+
+    &:hover {
+      background: rgba($accent, 0.3);
+    }
+  }
+
+  // Subtle active indicator using border-left
+  &.active--subtle {
+    border-left: 2px solid $accent;
+    padding-left: 6px;
   }
 }
 

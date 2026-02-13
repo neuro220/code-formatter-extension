@@ -3,6 +3,11 @@
  * Handles reading local files with size limits and language detection
  */
 
+import { getLanguageFromFilename, formatFileSize } from '../shared/utils';
+
+// Re-export for backward compatibility
+export { formatFileSize, getLanguageFromFilename as detectLanguageFromFilename };
+
 /**
  * File metadata information
  */
@@ -90,67 +95,6 @@ export async function readLocalFile(file: File): Promise<string> {
 }
 
 /**
- * Detect language from file extension
- * Handles edge cases like multiple dots and missing extensions
- */
-export function detectLanguageFromFilename(filename: string): string | null {
-  if (!filename || typeof filename !== 'string') {
-    return null;
-  }
-
-  // Get the last extension (handles files like .d.ts, .min.js, etc.)
-  const parts = filename.split('.');
-  if (parts.length < 2) {
-    return null; // No extension
-  }
-
-  const ext = parts.pop()?.toLowerCase();
-  if (!ext) return null;
-
-  // Handle special cases for compound extensions
-  const secondLastPart =
-    parts.length > 0 ? parts[parts.length - 1].toLowerCase() : '';
-
-  const extensionMap: Record<string, string> = {
-    js: 'javascript',
-    jsx: 'javascript',
-    ts: 'typescript',
-    tsx: 'typescript',
-    mjs: 'javascript',
-    cjs: 'javascript',
-    json: 'json',
-    css: 'css',
-    scss: 'scss',
-    less: 'less',
-    html: 'html',
-    htm: 'html',
-    xml: 'xml',
-    svg: 'xml',
-    py: 'python',
-    pyi: 'python',
-    pyw: 'python',
-    md: 'markdown',
-    go: 'go',
-    rs: 'rust',
-    sql: 'sql',
-    yml: 'yaml',
-    yaml: 'yaml',
-    toml: 'toml',
-    rb: 'ruby',
-    lua: 'lua',
-    zig: 'zig',
-    dart: 'dart',
-  };
-
-  // Handle special compound extensions
-  if (ext === 'ts' && secondLastPart === 'd') {
-    return 'typescript';
-  }
-
-  return extensionMap[ext] || null;
-}
-
-/**
  * Get file metadata
  */
 export function getFileMetadata(file: File): LoadedFileInfo {
@@ -161,17 +105,6 @@ export function getFileMetadata(file: File): LoadedFileInfo {
     lastModified: new Date(file.lastModified),
     mimeType: file.type || 'text/plain',
   };
-}
-
-/**
- * Format file size in human-readable format
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 /**
@@ -258,8 +191,8 @@ export async function loadFile(file: File): Promise<FileLoadResult> {
       ),
     ]);
 
-    // Detect language
-    const language = detectLanguageFromFilename(file.name);
+    // Detect language using shared utility
+    const language = getLanguageFromFilename(file.name);
     if (!language) {
       return {
         success: false,

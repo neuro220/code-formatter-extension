@@ -15,6 +15,9 @@ interface WasmModule {
 // Cache for initialized WASM modules
 const wasmCache = new Map<string, WasmModule>();
 
+// Maximum number of errors to keep
+const MAX_ERRORS = 10;
+
 // Error tracking for monitoring
 interface WasmLoadError {
   timestamp: number;
@@ -23,6 +26,17 @@ interface WasmLoadError {
 }
 
 const loadErrors: WasmLoadError[] = [];
+
+/**
+ * Add an error to the error log, maintaining max size
+ */
+function addError(error: WasmLoadError): void {
+  loadErrors.push(error);
+  // Keep only the most recent errors
+  while (loadErrors.length > MAX_ERRORS) {
+    loadErrors.shift();
+  }
+}
 
 /**
  * Get the base URL for WASM files in the extension
@@ -82,7 +96,7 @@ export async function loadWasmFormatter(
   // Check WASM support first
   if (!isWasmSupported()) {
     const error = new Error('WebAssembly is not supported in this browser');
-    loadErrors.push({
+    addError({
       timestamp: Date.now(),
       module: webJsFile,
       error: error.message,
@@ -111,7 +125,7 @@ export async function loadWasmFormatter(
   } catch (error) {
     // Log error for debugging
     const errorMessage = error instanceof Error ? error.message : String(error);
-    loadErrors.push({
+    addError({
       timestamp: Date.now(),
       module: webJsFile,
       error: errorMessage,

@@ -3,11 +3,11 @@ import type {
   FormatterMetadata,
   FormatResult,
   FormatterSettings,
-} from './types';
+} from "./types";
 
 // Pre-bundle all Prettier plugins at module load time
 // This ensures they work correctly in the bundled extension
-let prettier: typeof import('prettier/standalone');
+let prettier: typeof import("prettier/standalone");
 let babelPlugin: any;
 let estreePlugin: any;
 let typescriptPlugin: any;
@@ -19,17 +19,17 @@ let markdownPlugin: any;
 async function loadPrettierPlugins(): Promise<void> {
   if (prettier) return; // Already loaded
 
-  prettier = await import('prettier/standalone');
+  prettier = await import("prettier/standalone");
 
   // Load all plugins in parallel
   const [babel, estree, typescript, postcss, html, markdown] =
     await Promise.all([
-      import('prettier/plugins/babel'),
-      import('prettier/plugins/estree'),
-      import('prettier/plugins/typescript'),
-      import('prettier/plugins/postcss'),
-      import('prettier/plugins/html'),
-      import('prettier/plugins/markdown'),
+      import("prettier/plugins/babel"),
+      import("prettier/plugins/estree"),
+      import("prettier/plugins/typescript"),
+      import("prettier/plugins/postcss"),
+      import("prettier/plugins/html"),
+      import("prettier/plugins/markdown"),
     ]);
 
   babelPlugin = babel;
@@ -42,18 +42,18 @@ async function loadPrettierPlugins(): Promise<void> {
 
 export class PrettierFormatter implements IFormatter {
   readonly metadata: FormatterMetadata = {
-    id: 'prettier',
-    name: 'Prettier',
-    description: 'Opinionated code formatter for JS/TS/JSON/CSS/HTML',
+    id: "prettier",
+    name: "Prettier",
+    description: "Opinionated code formatter for JS/TS/JSON/CSS/HTML",
     languages: [
-      'javascript',
-      'typescript',
-      'json',
-      'css',
-      'scss',
-      'less',
-      'html',
-      'markdown',
+      "javascript",
+      "typescript",
+      "json",
+      "css",
+      "scss",
+      "less",
+      "html",
+      "markdown",
     ],
     capabilities: {
       isFormatter: true,
@@ -65,7 +65,7 @@ export class PrettierFormatter implements IFormatter {
   async format(
     code: string,
     language: string,
-    settings?: FormatterSettings
+    settings?: FormatterSettings,
   ): Promise<FormatResult> {
     try {
       // Ensure plugins are loaded
@@ -75,22 +75,22 @@ export class PrettierFormatter implements IFormatter {
 
       // Use pre-loaded plugins
       switch (language.toLowerCase()) {
-        case 'javascript':
-        case 'typescript':
+        case "javascript":
+        case "typescript":
           plugins.push(babelPlugin, estreePlugin, typescriptPlugin);
           break;
-        case 'json':
+        case "json":
           plugins.push(babelPlugin);
           break;
-        case 'css':
-        case 'scss':
-        case 'less':
+        case "css":
+        case "scss":
+        case "less":
           plugins.push(postcssPlugin);
           break;
-        case 'html':
+        case "html":
           plugins.push(htmlPlugin);
           break;
-        case 'markdown':
+        case "markdown":
           plugins.push(markdownPlugin);
           break;
       }
@@ -100,9 +100,8 @@ export class PrettierFormatter implements IFormatter {
         plugins,
         tabWidth: settings?.indentSize ?? 2,
         useTabs: settings?.useTabs ?? false,
-        printWidth: settings?.lineWrap ?? 80,
         singleQuote: settings?.singleQuote ?? true,
-        trailingComma: settings?.trailingComma ?? 'es5',
+        trailingComma: settings?.trailingComma ?? "es5",
         semi: settings?.semi ?? true,
       });
 
@@ -112,23 +111,23 @@ export class PrettierFormatter implements IFormatter {
         success: false,
         code,
         error:
-          error instanceof Error ? error.message : 'Prettier formatting failed',
+          error instanceof Error ? error.message : "Prettier formatting failed",
       };
     }
   }
 
   private getParser(language: string): string {
     const parsers: Record<string, string> = {
-      javascript: 'babel',
-      typescript: 'typescript',
-      json: 'json',
-      css: 'css',
-      scss: 'scss',
-      less: 'less',
-      html: 'html',
-      markdown: 'markdown',
+      javascript: "babel",
+      typescript: "typescript",
+      json: "json",
+      css: "css",
+      scss: "scss",
+      less: "less",
+      html: "html",
+      markdown: "markdown",
     };
-    return parsers[language.toLowerCase()] || 'babel';
+    return parsers[language.toLowerCase()] || "babel";
   }
 
   isAvailable(): boolean {

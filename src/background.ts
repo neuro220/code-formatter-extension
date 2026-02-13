@@ -10,15 +10,15 @@ import {
   formatterRegistry,
   type FormatterSettings,
   type FormatResult,
-} from './formatters';
+} from "./formatters";
 import type {
   ExtensionMessage,
   FormatMessage,
   FormatResponse,
   GetSupportedLanguagesResponse,
   CheckLanguageSupportResponse,
-} from './shared/types';
-import { LANGUAGE_DEFAULTS } from './shared/constants';
+} from "./shared/types";
+import { LANGUAGE_DEFAULTS } from "./shared/constants";
 
 // ============================================================================
 // Formatting Cache
@@ -27,20 +27,175 @@ import { LANGUAGE_DEFAULTS } from './shared/constants';
 const formatCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 50;
 
-/** Simple hash for cache keys */
-function hashKey(
+// Maximum code size to prevent DoS (1MB)
+const MAX_CODE_SIZE = 1024 * 1024;
+
+// Rate limiting: Track requests per tab to prevent abuse
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitMap = new Map<number, RateLimitEntry>();
+const RATE_LIMIT_WINDOW = 1000; // 1 second window
+const RATE_LIMIT_MAX = 10; // Max 10 requests per window per tab
+
+// Supported languages for validation
+const SUPPORTED_LANGUAGES = [
+  "javascript",
+  "typescript",
+  "json",
+  "css",
+  "scss",
+  "less",
+  "html",
+  "xml",
+  "python",
+  "markdown",
+  "go",
+  "rust",
+  "sql",
+  "yaml",
+  "toml",
+  "ruby",
+  "lua",
+  "zig",
+  "dart",
+];
+
+/**
+ * Validates the sender of a message to prevent unauthorized access
+ * Only accepts messages from the extension's own pages or content scripts
+ */
+function validateSender(sender: chrome.runtime.MessageSender): {
+  valid: boolean;
+  error?: string;
+} {
+  // Allow messages with no sender (internal extension calls)
+  if (!sender.id || sender.id === chrome.runtime.id) {
+    return { valid: true };
+  }
+
+  // Allow messages from content scripts (they have url property)
+  if (sender.url) {
+    try {
+      // Validate that the URL is parseable
+      new URL(sender.url);
+      // Allow messages from any tab - content scripts are trusted
+      // The manifest only allows content scripts on specific patterns
+      return { valid: true };
+    } catch {
+      return { valid: false, error: "Invalid sender URL" };
+    }
+  }
+
+  // If no URL and not from extension, reject
+  return { valid: false, error: "Unknown message sender" };
+}
+
+/**
+ * Check and enforce rate limiting for format requests
+ * Returns true if request is allowed, false if rate limited
+ */
+function checkRateLimit(tabId: number): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(tabId);
+
+  if (!entry || now > entry.resetTime) {
+    // Reset or create new entry
+    rateLimitMap.set(tabId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    // Rate limited
+    console.warn(`[Code Formatter] Rate limit exceeded for tab ${tabId}`);
+    return false;
+  }
+
+  // Increment counter
+  entry.count++;
+  return true;
+}
+
+/**
+ * Validates format message parameters
+ * Returns error message if invalid, null if valid
+ */
+function validateFormatMessage(msg: unknown): string | null {
+  if (!msg || typeof msg !== "object") {
+    return "Invalid message format";
+  }
+
+  const formatMsg = msg as Record<string, unknown>;
+
+  // Validate code parameter
+  if (formatMsg.code === undefined || formatMsg.code === null) {
+    return "Missing required parameter: code";
+  }
+  if (typeof formatMsg.code !== "string") {
+    return 'Parameter "code" must be a string';
+  }
+  if (formatMsg.code.length === 0) {
+    return 'Parameter "code" cannot be empty';
+  }
+  if (formatMsg.code.length > MAX_CODE_SIZE) {
+    return `Code size exceeds maximum limit of ${MAX_CODE_SIZE} bytes`;
+  }
+
+  // Validate language parameter
+  if (formatMsg.language === undefined || formatMsg.language === null) {
+    return "Missing required parameter: language";
+  }
+  if (typeof formatMsg.language !== "string") {
+    return 'Parameter "language" must be a string';
+  }
+  if (formatMsg.language.length === 0) {
+    return 'Parameter "language" cannot be empty';
+  }
+  // Validate language is supported
+  if (!SUPPORTED_LANGUAGES.includes(formatMsg.language.toLowerCase())) {
+    return `Unsupported language: ${formatMsg.language}`;
+  }
+
+  // Validate settings if provided
+  if (formatMsg.settings !== undefined && formatMsg.settings !== null) {
+    if (typeof formatMsg.settings !== "object") {
+      return 'Parameter "settings" must be an object';
+    }
+    // Check for circular references by trying to stringify
+    try {
+      JSON.stringify(formatMsg.settings);
+    } catch {
+      return 'Parameter "settings" contains invalid data (possible circular reference)';
+    }
+  }
+
+  return null; // Valid
+}
+
+/**
+ * Generate a secure cache key using SHA-256 hash
+ * Uses Web Crypto API for cryptographic hashing to prevent collisions
+ */
+async function hashKey(
   code: string,
   language: string,
-  settings?: FormatterSettings
-): string {
+  settings?: FormatterSettings,
+): Promise<string> {
   const settingsStr = JSON.stringify(settings ?? {});
-  let hash = 2166136261;
   const str = `${language}:${settingsStr}:${code}`;
-  for (let i = 0; i < Math.min(str.length, 500); i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `${hash >>> 0}:${code.length}`;
+
+  // Use Web Crypto API for secure hashing
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return hashHex;
 }
 
 /**
@@ -48,26 +203,25 @@ function hashKey(
  * Merges language-specific defaults with user settings (user settings take precedence)
  */
 function convertSettings(
-  settings?: FormatMessage['settings'],
-  language?: string
+  settings?: FormatMessage["settings"],
+  language?: string,
 ): FormatterSettings {
   // Get language-specific defaults if available
   const langDefaults = language ? LANGUAGE_DEFAULTS[language] : undefined;
 
   // Parse indent size from settings
   const indentSize =
-    typeof settings?.indentSize === 'string'
+    typeof settings?.indentSize === "string"
       ? parseInt(settings.indentSize as string, 10) || 2
       : (settings?.indentSize ?? langDefaults?.indentSize ?? 2);
 
   // Build formatter settings with priority: user settings > language defaults > global defaults
   return {
     indentSize,
-    lineWrap: settings?.lineWrap ?? langDefaults?.lineWrap ?? 80,
-    useTabs: langDefaults?.useTabs ?? false,
+    useTabs: settings?.useTabs ?? langDefaults?.useTabs ?? false,
     singleQuote: settings?.singleQuote ?? langDefaults?.singleQuote ?? true,
     semi: settings?.semi ?? langDefaults?.semi ?? true,
-    trailingComma: settings?.trailingComma ?? 'es5',
+    trailingComma: settings?.trailingComma ?? "es5",
   };
 }
 
@@ -77,7 +231,7 @@ function convertSettings(
 async function formatCode(
   code: string,
   language: string,
-  settings?: FormatMessage['settings']
+  settings?: FormatMessage["settings"],
 ): Promise<FormatResult> {
   // Check if language is supported
   if (!formatterRegistry.isSupported(language)) {
@@ -90,7 +244,7 @@ async function formatCode(
 
   // Check cache
   const formatterSettings = convertSettings(settings, language);
-  const key = hashKey(code, language, formatterSettings);
+  const key = await hashKey(code, language, formatterSettings);
   const cached = formatCache.get(key);
   if (cached) {
     return { success: true, code: cached };
@@ -100,16 +254,21 @@ async function formatCode(
   const result = await formatterRegistry.format(
     code,
     language,
-    formatterSettings
+    formatterSettings,
   );
 
-  // Store in cache if successful
-  if (result.success && formatCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = formatCache.keys().next().value;
-    if (firstKey !== undefined) formatCache.delete(firstKey);
-  }
+  // Store in cache if successful (LRU eviction)
   if (result.success) {
-    formatCache.set(key, result.code);
+    // Evict oldest entries if cache is full or would exceed limit
+    while (formatCache.size >= MAX_CACHE_SIZE && formatCache.size > 0) {
+      const firstKey = formatCache.keys().next().value;
+      if (firstKey === undefined) break;
+      formatCache.delete(firstKey);
+    }
+    // Only add if we successfully evicted or there's space
+    if (formatCache.size < MAX_CACHE_SIZE) {
+      formatCache.set(key, result.code);
+    }
   }
 
   return result;
@@ -123,42 +282,80 @@ function setupMessageHandlers(): void {
   chrome.runtime.onMessage.addListener(
     (
       message: ExtensionMessage,
-      _sender: chrome.runtime.MessageSender,
-      sendResponse: (response: FormatResponse) => void
+      sender: chrome.runtime.MessageSender,
+      sendResponse: (response: FormatResponse) => void,
     ): boolean => {
-      if (message.action === 'format') {
+      // Validate sender origin to prevent unauthorized access
+      const senderValidation = validateSender(sender);
+      if (!senderValidation.valid) {
+        console.warn(
+          "[Code Formatter] Invalid message sender:",
+          senderValidation.error,
+        );
+        sendResponse({ success: false, error: "Unauthorized message sender" });
+        return true;
+      }
+
+      // Apply rate limiting for format requests
+      if (message.action === "format" && sender.tab?.id) {
+        if (!checkRateLimit(sender.tab.id)) {
+          sendResponse({
+            success: false,
+            error: "Rate limit exceeded. Please try again later.",
+          });
+          return true;
+        }
+      }
+
+      if (message.action === "format") {
+        // Validate message parameters
+        const validationError = validateFormatMessage(message);
+        if (validationError) {
+          sendResponse({ success: false, error: validationError });
+          return true;
+        }
+
         const formatMsg = message as unknown as FormatMessage;
 
         // Use async/await with Promise
         formatCode(formatMsg.code, formatMsg.language, formatMsg.settings)
-          .then(result => {
+          .then((result) => {
             if (result.success) {
               sendResponse({ success: true, code: result.code });
             } else {
               sendResponse({
                 success: false,
-                error: result.error || 'Formatting failed',
+                error: result.error || "Formatting failed",
               });
             }
           })
-          .catch(error => {
-            console.error('[Code Formatter] Formatting error:', error);
+          .catch((error) => {
+            console.error("[Code Formatter] Formatting error:", error);
             sendResponse({
               success: false,
               error:
-                error instanceof Error ? error.message : 'Formatting failed',
+                error instanceof Error ? error.message : "Formatting failed",
             });
           });
-      } else if (message.action === 'getSupportedLanguages') {
+      } else if (message.action === "getSupportedLanguages") {
         const languages = formatterRegistry.getSupportedLanguages();
         const response: GetSupportedLanguagesResponse = {
           success: true,
           languages,
         };
         sendResponse(response);
-      } else if (message.action === 'checkLanguageSupport') {
-        const formatMsg = message as unknown as FormatMessage;
-        const isSupported = formatterRegistry.isSupported(formatMsg.language);
+      } else if (message.action === "checkLanguageSupport") {
+        // Validate language parameter
+        const msg = message as Record<string, unknown>;
+        if (!msg.language || typeof msg.language !== "string") {
+          sendResponse({
+            success: false,
+            error: "Invalid or missing language parameter",
+          });
+          return true;
+        }
+
+        const isSupported = formatterRegistry.isSupported(msg.language);
         const response: CheckLanguageSupportResponse = {
           success: true,
           isSupported,
@@ -172,7 +369,7 @@ function setupMessageHandlers(): void {
       }
 
       return true;
-    }
+    },
   );
 }
 
@@ -183,106 +380,117 @@ function setupMessageHandlers(): void {
 function setupContextMenu(): void {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: 'codeFormatter',
-      title: 'Format Code',
-      contexts: ['page', 'selection'],
+      id: "codeFormatter",
+      title: "Format Code",
+      contexts: ["page", "selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatJS',
-      parentId: 'codeFormatter',
-      title: 'Format as JavaScript',
-      contexts: ['selection'],
+      id: "formatJS",
+      parentId: "codeFormatter",
+      title: "Format as JavaScript",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatTS',
-      parentId: 'codeFormatter',
-      title: 'Format as TypeScript',
-      contexts: ['selection'],
+      id: "formatTS",
+      parentId: "codeFormatter",
+      title: "Format as TypeScript",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatCSS',
-      parentId: 'codeFormatter',
-      title: 'Format as CSS',
-      contexts: ['selection'],
+      id: "formatCSS",
+      parentId: "codeFormatter",
+      title: "Format as CSS",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatHTML',
-      parentId: 'codeFormatter',
-      title: 'Format as HTML',
-      contexts: ['selection'],
+      id: "formatHTML",
+      parentId: "codeFormatter",
+      title: "Format as HTML",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatJSON',
-      parentId: 'codeFormatter',
-      title: 'Format as JSON',
-      contexts: ['selection'],
+      id: "formatJSON",
+      parentId: "codeFormatter",
+      title: "Format as JSON",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatPython',
-      parentId: 'codeFormatter',
-      title: 'Format as Python',
-      contexts: ['selection'],
+      id: "formatPython",
+      parentId: "codeFormatter",
+      title: "Format as Python",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatGo',
-      parentId: 'codeFormatter',
-      title: 'Format as Go',
-      contexts: ['selection'],
+      id: "formatGo",
+      parentId: "codeFormatter",
+      title: "Format as Go",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatSQL',
-      parentId: 'codeFormatter',
-      title: 'Format as SQL',
-      contexts: ['selection'],
+      id: "formatSQL",
+      parentId: "codeFormatter",
+      title: "Format as SQL",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatYAML',
-      parentId: 'codeFormatter',
-      title: 'Format as YAML',
-      contexts: ['selection'],
+      id: "formatYAML",
+      parentId: "codeFormatter",
+      title: "Format as YAML",
+      contexts: ["selection"],
     });
 
     chrome.contextMenus.create({
-      id: 'formatTOML',
-      parentId: 'codeFormatter',
-      title: 'Format as TOML',
-      contexts: ['selection'],
+      id: "formatTOML",
+      parentId: "codeFormatter",
+      title: "Format as TOML",
+      contexts: ["selection"],
     });
   });
 
   chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (!tab?.id || !info.selectionText) return;
 
+    // Validate selection text size
+    if (info.selectionText.length > MAX_CODE_SIZE) {
+      console.warn("[Code Formatter] Selection too large to format");
+      return;
+    }
+
     const languageMap: Record<string, string> = {
-      formatJS: 'javascript',
-      formatTS: 'typescript',
-      formatCSS: 'css',
-      formatHTML: 'html',
-      formatJSON: 'json',
-      formatPython: 'python',
-      formatGo: 'go',
-      formatSQL: 'sql',
-      formatYAML: 'yaml',
-      formatTOML: 'toml',
+      formatJS: "javascript",
+      formatTS: "typescript",
+      formatCSS: "css",
+      formatHTML: "html",
+      formatJSON: "json",
+      formatPython: "python",
+      formatGo: "go",
+      formatSQL: "sql",
+      formatYAML: "yaml",
+      formatTOML: "toml",
     };
 
     const language = languageMap[info.menuItemId as string];
     if (!language) return;
 
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'formatSelection',
-      language,
-      code: info.selectionText,
-    });
+    // Send message with error handling
+    try {
+      chrome.tabs.sendMessage(tab.id, {
+        action: "formatSelection",
+        language,
+        code: info.selectionText,
+      });
+    } catch (error) {
+      console.error("[Code Formatter] Failed to send message to tab:", error);
+    }
   });
 }
 
@@ -290,11 +498,21 @@ function setupContextMenu(): void {
 // Extension Lifecycle
 // ============================================================================
 
+// Track initialization state to prevent duplicate initialization
+let isInitialized = false;
+
 function initializeExtension(): void {
-  console.log('[Code Formatter] Extension initialized');
+  // Prevent double initialization
+  if (isInitialized) {
+    console.log("[Code Formatter] Already initialized, skipping");
+    return;
+  }
+  isInitialized = true;
+
+  console.log("[Code Formatter] Extension initialized");
   console.log(
-    '[Code Formatter] Supported languages:',
-    formatterRegistry.getSupportedLanguages().join(', ')
+    "[Code Formatter] Supported languages:",
+    formatterRegistry.getSupportedLanguages().join(", "),
   );
   setupMessageHandlers();
   setupContextMenu();
@@ -305,7 +523,7 @@ function initializeExtension(): void {
  */
 function openChangelog(): void {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('changelog.html'),
+    url: chrome.runtime.getURL("changelog.html"),
   });
 }
 
@@ -314,13 +532,22 @@ function openChangelog(): void {
  * @param reason - The install reason (install, update, etc.)
  */
 function handleInstallOrUpdate(
-  _reason: chrome.runtime.OnInstalledReason
+  _reason: chrome.runtime.OnInstalledReason,
 ): void {
   // We track the version in storage, so we don't need the reason parameter
   // The changelog is shown regardless of install or update
   const currentVersion = chrome.runtime.getManifest().version;
 
-  chrome.storage.local.get(['lastSeenVersion'], result => {
+  chrome.storage.local.get(["lastSeenVersion"], (result) => {
+    // Check for runtime errors
+    if (chrome.runtime.lastError) {
+      console.error(
+        "[Code Formatter] Storage read error:",
+        chrome.runtime.lastError.message,
+      );
+      return;
+    }
+
     const lastSeenVersion = result.lastSeenVersion;
 
     // Show changelog if:
@@ -328,7 +555,7 @@ function handleInstallOrUpdate(
     // 2. Version has changed (update)
     if (!lastSeenVersion || lastSeenVersion !== currentVersion) {
       console.log(
-        `[Code Formatter] Showing changelog: ${lastSeenVersion || 'none'} → ${currentVersion}`
+        `[Code Formatter] Showing changelog: ${lastSeenVersion || "none"} → ${currentVersion}`,
       );
 
       // Open changelog after a short delay to ensure extension is ready
@@ -337,22 +564,39 @@ function handleInstallOrUpdate(
       }, 500);
 
       // Store current version as last seen
-      chrome.storage.local.set({ lastSeenVersion: currentVersion });
+      chrome.storage.local.set({ lastSeenVersion: currentVersion }, () => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[Code Formatter] Storage write error:",
+            chrome.runtime.lastError.message,
+          );
+        }
+      });
     }
   });
 }
 
-chrome.runtime.onInstalled.addListener(details => {
+chrome.runtime.onInstalled.addListener((details) => {
   const reason = details.reason;
 
-  if (reason === 'install') {
-    console.log('[Code Formatter] Extension installed');
-    chrome.storage.local.set({
-      javascriptOptions: { indent_size: 2 },
-      cssOptions: { indent_size: 2 },
-      htmlOptions: { indent_size: 2 },
-    });
-  } else if (reason === 'update') {
+  if (reason === "install") {
+    console.log("[Code Formatter] Extension installed");
+    chrome.storage.local.set(
+      {
+        javascriptOptions: { indent_size: 2 },
+        cssOptions: { indent_size: 2 },
+        htmlOptions: { indent_size: 2 },
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[Code Formatter] Failed to set default options:",
+            chrome.runtime.lastError.message,
+          );
+        }
+      },
+    );
+  } else if (reason === "update") {
     console.log(`[Code Formatter] Updated from ${details.previousVersion}`);
   }
 
@@ -363,7 +607,7 @@ chrome.runtime.onInstalled.addListener(details => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[Code Formatter] Extension started');
+  console.log("[Code Formatter] Extension started");
   initializeExtension();
 });
 

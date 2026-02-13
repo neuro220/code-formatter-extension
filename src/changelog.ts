@@ -40,37 +40,28 @@ interface ChangelogData {
  * The changelog data containing version information and categorized changes
  */
 const changelogData: ChangelogData = {
-  version: '1.9.1',
-  date: '2026-02-12',
+  version: "1.9.2",
+  date: "2026-02-13",
   changes: [
     {
-      type: 'New Features',
+      type: "New Features",
       items: [
-        '<strong>Enhanced Settings UI</strong>: Added settings cards for js-beautify and WASM formatters.',
-        '<strong>WASM Formatter Options</strong>: Customize quote style, keyword case, and comma position.',
-        '<strong>js-beautify Options</strong>: Toggle E4X/JSX, space in parens, unescape strings, and array indentation.',
-        '<strong>Word Wrap (Experimental)</strong>: New word wrap feature for easier code viewing.',
-        '<strong>Drag/Drop to View</strong>: Simply drag and drop files to view and format them.',
+        "<strong>New Themes</strong>: Added Dracula, Nord, Monokai, Material, GitHub, Solarized, and Tokyo Night themes.",
+        "<strong>Toggle Button Indicators</strong>: Active buttons now show visual highlighting to indicate ON/OFF state.",
       ],
     },
     {
-      type: 'Improved',
+      type: "Improved",
       items: [
-        '<strong>Type Safety</strong>: Fixed type mismatches for better code quality.',
-        '<strong>Settings Management</strong>: All formatter options now load from storage.',
-        '<strong>Visual Refresh</strong>: Modern "Logo Blue" theme.',
-        '<strong>Performance</strong>: Removed loading screen for instant feedback.',
-        '<strong>Stability</strong>: Better error handling for malformed code.',
+        "<strong>Performance Optimization</strong>: Added lazy loading, deferred initialization, and content-script caching for faster page loads.",
+        "<strong>Improved Code Detection</strong>: Better detection of code pages via URL patterns and DOM elements.",
       ],
     },
     {
-      type: 'Fixed',
+      type: "Fixed",
       items: [
-        '<strong>Missing Settings UI</strong>: Added controls for all hidden formatter options.',
-        '<strong>Type Mismatches</strong>: Fixed indentSize and quoteStyle types.',
-        '<strong>Content Script</strong>: More reliable loading.',
-        '<strong>Prettier Bundling</strong>: Fixed import errors.',
-        '<strong>Message Passing</strong>: Added retry logic.',
+        "<strong>Extension Reliability</strong>: Fixed issue where extension didn't always inject on code pages, causing inconsistent behavior.",
+        "<strong>Original View</strong>: Added top padding when viewing original code to prevent toolbar overlap.",
       ],
     },
   ],
@@ -85,14 +76,14 @@ const changelogData: ChangelogData = {
  * These tags are considered safe and will not be removed
  */
 const ALLOWED_TAGS: string[] = [
-  'strong',
-  'b',
-  'i',
-  'em',
-  'u',
-  'br',
-  'span',
-  'code',
+  "strong",
+  "b",
+  "i",
+  "em",
+  "u",
+  "br",
+  "span",
+  "code",
 ];
 
 /**
@@ -105,12 +96,12 @@ const ALLOWED_TAGS: string[] = [
 function sanitizeHtml(html: string): DocumentFragment {
   // Parse the HTML string into a DOM document
   const parser: DOMParser = new DOMParser();
-  const doc: Document = parser.parseFromString(html, 'text/html');
+  const doc: Document = parser.parseFromString(html, "text/html");
 
   // Create a tree walker to iterate through all elements in the document body
   const treeWalker: TreeWalker = document.createTreeWalker(
     doc.body,
-    NodeFilter.SHOW_ELEMENT
+    NodeFilter.SHOW_ELEMENT,
   );
 
   // Collect all elements that are not in the allowed tags list
@@ -127,6 +118,35 @@ function sanitizeHtml(html: string): DocumentFragment {
   // Remove all disallowed elements from their parent nodes
   elementsToRemove.forEach((element: Element): void => {
     element.parentNode?.removeChild(element);
+  });
+
+  // Remove dangerous attributes from all remaining elements
+  const dangerousAttrs = [
+    "onclick",
+    "onerror",
+    "onload",
+    "onmouseover",
+    "onfocus",
+    "onblur",
+    "onchange",
+    "onsubmit",
+    "href",
+    "src",
+    "xlink:href",
+  ];
+
+  const allElements = doc.body.querySelectorAll("*");
+  allElements.forEach((el: Element) => {
+    // Remove all event handlers and dangerous attributes
+    dangerousAttrs.forEach((attr) => {
+      el.removeAttribute(attr);
+    });
+    // Also remove any attribute starting with 'on'
+    Array.from(el.attributes).forEach((attr) => {
+      if (attr.name.toLowerCase().startsWith("on")) {
+        el.removeAttribute(attr.name);
+      }
+    });
   });
 
   // Create a new document fragment to hold the sanitized content
@@ -153,20 +173,20 @@ function createHeader(): DocumentFragment {
   const fragment: DocumentFragment = document.createDocumentFragment();
 
   // Create main title
-  const title: HTMLHeadingElement = document.createElement('h1');
-  title.textContent = 'Code Formatter';
+  const title: HTMLHeadingElement = document.createElement("h1");
+  title.textContent = "Code Formatter";
 
   // Create version badge
-  const versionBadge: HTMLSpanElement = document.createElement('span');
-  versionBadge.className = 'version-badge';
+  const versionBadge: HTMLSpanElement = document.createElement("span");
+  versionBadge.className = "version-badge";
   versionBadge.textContent = `v${changelogData.version}`;
 
   title.appendChild(versionBadge);
   fragment.appendChild(title);
 
   // Create release date paragraph
-  const dateParagraph: HTMLParagraphElement = document.createElement('p');
-  dateParagraph.style.cssText = 'color: #ccc; margin-bottom: 30px;';
+  const dateParagraph: HTMLParagraphElement = document.createElement("p");
+  dateParagraph.style.cssText = "color: #ccc; margin-bottom: 30px;";
   dateParagraph.textContent = `Released: ${changelogData.date}`;
   fragment.appendChild(dateParagraph);
 
@@ -182,22 +202,22 @@ function createHeader(): DocumentFragment {
  */
 function createChangeSection(
   entry: ChangeEntry,
-  index: number
+  index: number,
 ): HTMLDivElement {
-  const section: HTMLDivElement = document.createElement('div');
-  section.className = 'section';
+  const section: HTMLDivElement = document.createElement("div");
+  section.className = "section";
   section.style.animationDelay = `${index * 0.1}s`;
 
   // Create section heading
-  const heading: HTMLHeadingElement = document.createElement('h2');
+  const heading: HTMLHeadingElement = document.createElement("h2");
   heading.textContent = entry.type;
   section.appendChild(heading);
 
   // Create list of changes
-  const list: HTMLUListElement = document.createElement('ul');
+  const list: HTMLUListElement = document.createElement("ul");
 
   entry.items.forEach((item: string): void => {
-    const listItem: HTMLLIElement = document.createElement('li');
+    const listItem: HTMLLIElement = document.createElement("li");
     listItem.appendChild(sanitizeHtml(item));
     list.appendChild(listItem);
   });
@@ -213,20 +233,20 @@ function createChangeSection(
  * @returns A div element containing the footer
  */
 function createFooter(): HTMLDivElement {
-  const footer: HTMLDivElement = document.createElement('div');
-  footer.className = 'footer';
+  const footer: HTMLDivElement = document.createElement("div");
+  footer.className = "footer";
 
   // Create thanks message
-  const thanksMessage: HTMLParagraphElement = document.createElement('p');
-  thanksMessage.textContent = 'Thanks for using Code Formatter!';
+  const thanksMessage: HTMLParagraphElement = document.createElement("p");
+  thanksMessage.textContent = "Thanks for using Code Formatter!";
   footer.appendChild(thanksMessage);
 
-  // Create close button
-  const closeButton: HTMLAnchorElement = document.createElement('a');
-  closeButton.href = '#';
-  closeButton.id = 'close-btn';
-  closeButton.className = 'btn';
-  closeButton.textContent = 'Close';
+  // Create close button (using button element for better accessibility)
+  const closeButton: HTMLButtonElement = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.id = "close-btn";
+  closeButton.className = "btn";
+  closeButton.textContent = "Close";
   footer.appendChild(closeButton);
 
   return footer;
@@ -255,9 +275,8 @@ function renderChangelog(container: HTMLElement): void {
   container.appendChild(fragment);
 
   // Add event listener to close button
-  const closeButton: HTMLElement | null = document.getElementById('close-btn');
-  closeButton?.addEventListener('click', (event: Event): void => {
-    event.preventDefault();
+  const closeButton: HTMLElement | null = document.getElementById("close-btn");
+  closeButton?.addEventListener("click", (): void => {
     window.close();
   });
 }
@@ -269,13 +288,13 @@ function renderChangelog(container: HTMLElement): void {
 /**
  * Initialize changelog when DOM is fully loaded
  */
-document.addEventListener('DOMContentLoaded', (): void => {
+document.addEventListener("DOMContentLoaded", (): void => {
   const container: HTMLElement | null = document.getElementById(
-    'changelog-container'
+    "changelog-container",
   );
 
   if (!container) {
-    console.error('Changelog container not found');
+    console.error("Changelog container not found");
     return;
   }
 
@@ -285,7 +304,14 @@ document.addEventListener('DOMContentLoaded', (): void => {
   const currentVersion = (chrome as any).runtime?.getManifest()?.version;
   if (currentVersion) {
     chrome.storage.local.set({ lastSeenVersion: currentVersion }, () => {
-      console.log(`[Changelog] Marked version ${currentVersion} as seen`);
+      if (chrome.runtime.lastError) {
+        console.error(
+          "[Changelog] Failed to mark version as seen:",
+          chrome.runtime.lastError.message,
+        );
+      } else {
+        console.log(`[Changelog] Marked version ${currentVersion} as seen`);
+      }
     });
   }
 });

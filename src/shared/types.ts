@@ -5,54 +5,64 @@
 /** User-configurable extension settings */
 export interface ExtensionSettings {
   indentSize: number;
-  quoteStyle: 'single' | 'double';
-  lineWrap: number;
+  quoteStyle: "single" | "double";
   theme: ThemeName;
   wrapLines: boolean;
   fontSize: string;
   lineHeight: number;
+  useTabs: boolean;
   // Formatter options
   singleQuote?: boolean;
   semi?: boolean;
-  trailingComma?: 'none' | 'es5' | 'all';
+  trailingComma?: "none" | "es5" | "all";
   // js-beautify options
   e4x?: boolean;
   spaceInEmptyParens?: boolean;
   unescapeStrings?: boolean;
   keepArrayIndentation?: boolean;
   // WASM formatter options
-  quoteStyleWasm?: 'single' | 'double' | 'preserve';
-  keywordCase?: 'upper' | 'lower' | 'preserve';
-  commaPosition?: 'before' | 'after';
+  quoteStyleWasm?: "single" | "double" | "preserve";
+  keywordCase?: "upper" | "lower" | "preserve";
+  commaPosition?: "before" | "after";
   // Feature flags
   autoFormatOnType?: boolean;
   formatOnPasteMinLength?: number;
 }
 
 /** Available theme names */
-export type ThemeName = 'one-dark-pro' | 'dracula' | 'nord' | 'github-light';
+export type ThemeName =
+  | "one-dark-pro"
+  | "dracula"
+  | "nord"
+  | "monokai"
+  | "material"
+  | "github-dark"
+  | "github-light"
+  | "solarized-dark"
+  | "solarized-light"
+  | "tokyo-night";
 
 /** Supported language identifiers */
 export type LanguageId =
-  | 'javascript'
-  | 'typescript'
-  | 'json'
-  | 'css'
-  | 'scss'
-  | 'html'
-  | 'xml'
-  | 'python'
-  | 'markdown'
-  | 'go'
-  | 'rust'
-  | 'sql'
-  | 'yaml'
-  | 'toml'
-  | 'ruby';
+  | "javascript"
+  | "typescript"
+  | "json"
+  | "css"
+  | "scss"
+  | "html"
+  | "xml"
+  | "python"
+  | "markdown"
+  | "go"
+  | "rust"
+  | "sql"
+  | "yaml"
+  | "toml"
+  | "ruby";
 
 /** Messages sent between content script and background */
 export interface FormatMessage {
-  action: 'format';
+  action: "format";
   language: string;
   code: string;
   settings?: Partial<ExtensionSettings>;
@@ -65,13 +75,13 @@ export interface FormatResponse {
 }
 
 export interface FormatSelectionMessage {
-  action: 'formatSelection';
+  action: "formatSelection";
   language: string;
   code: string;
 }
 
 export interface GetLanguageMessage {
-  action: 'getLanguage';
+  action: "getLanguage";
 }
 
 export type ExtensionMessage =
@@ -81,7 +91,7 @@ export type ExtensionMessage =
   | { action: string; [key: string]: unknown };
 
 /** Notification types for toast system */
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationType = "success" | "error" | "warning" | "info";
 
 /**
  * Format result from background script

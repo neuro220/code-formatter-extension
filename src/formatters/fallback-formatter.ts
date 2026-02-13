@@ -161,16 +161,33 @@ export class FallbackFormatter implements IFormatter {
 
   private fixIndentation(
     line: string,
-    _index: number,
-    _lines: string[],
-    _indent: string
+    index: number,
+    lines: string[],
+    indent: string
   ): string {
     const trimmed = line.trim();
     if (!trimmed) return '';
 
-    // This is a simplified approach - in reality we'd need to track state
-    // For now, just trim and return
-    return trimmed;
+    // Track indentation level based on brackets/braces
+    let indentLevel = 0;
+    
+    // Count opening/closing braces from previous lines
+    for (let i = 0; i < index; i++) {
+      const prevLine = lines[i].trim();
+      // Count opening braces/brackets that increase indentation
+      const openMatches = prevLine.match(/[\{\[\(]/g);
+      const closeMatches = prevLine.match(/[\}\]\)]/g);
+      indentLevel += (openMatches?.length || 0);
+      indentLevel -= (closeMatches?.length || 0);
+    }
+    
+    // Decrease indent if line starts with closing brace
+    if (trimmed.match(/^[\}\]\)]/)) {
+      indentLevel = Math.max(0, indentLevel - 1);
+    }
+    
+    // Apply indentation
+    return indent.repeat(indentLevel) + trimmed;
   }
 
   isAvailable(): boolean {
