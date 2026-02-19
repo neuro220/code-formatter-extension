@@ -5,39 +5,86 @@ import type {
   FormatterSettings,
 } from "./types";
 
-// Pre-bundle all Prettier plugins at module load time
-// This ensures they work correctly in the bundled extension
-let prettier: typeof import("prettier/standalone");
-let babelPlugin: any;
-let estreePlugin: any;
-let typescriptPlugin: any;
-let postcssPlugin: any;
-let htmlPlugin: any;
-let markdownPlugin: any;
+type PrettierModule = typeof import("prettier/standalone");
+type PluginCache = Map<string, any>;
 
-// Load Prettier and plugins once at startup
-async function loadPrettierPlugins(): Promise<void> {
-  if (prettier) return; // Already loaded
+let prettier: PrettierModule | null = null;
+let prettierLoadPromise: Promise<void> | null = null;
 
-  prettier = await import("prettier/standalone");
+const pluginCache: PluginCache = new Map();
 
-  // Load all plugins in parallel
-  const [babel, estree, typescript, postcss, html, markdown] =
-    await Promise.all([
-      import("prettier/plugins/babel"),
-      import("prettier/plugins/estree"),
-      import("prettier/plugins/typescript"),
-      import("prettier/plugins/postcss"),
-      import("prettier/plugins/html"),
-      import("prettier/plugins/markdown"),
-    ]);
+const PLUGIN_LOADERS: Record<string, () => Promise<any>> = {
+  babel: () => import("prettier/plugins/babel"),
+  estree: () => import("prettier/plugins/estree"),
+  typescript: () => import("prettier/plugins/typescript"),
+  postcss: () => import("prettier/plugins/postcss"),
+  html: () => import("prettier/plugins/html"),
+  markdown: () => import("prettier/plugins/markdown"),
+};
 
-  babelPlugin = babel;
-  estreePlugin = estree;
-  typescriptPlugin = typescript;
-  postcssPlugin = postcss;
-  htmlPlugin = html;
-  markdownPlugin = markdown;
+async function loadPrettier(): Promise<PrettierModule> {
+  if (prettier) return prettier;
+
+  if (prettierLoadPromise) {
+    await prettierLoadPromise;
+    return prettier!;
+  }
+
+  prettierLoadPromise = (async () => {
+    prettier = await import("prettier/standalone");
+  })();
+
+  await prettierLoadPromise;
+  return prettier!;
+}
+
+async function loadPlugin(name: string): Promise<any> {
+  if (pluginCache.has(name)) {
+    return pluginCache.get(name);
+  }
+
+  const loader = PLUGIN_LOADERS[name];
+  if (!loader) {
+    throw new Error(`Unknown plugin: ${name}`);
+  }
+
+  const plugin = await loader();
+  pluginCache.set(name, plugin);
+  return plugin;
+}
+
+async function loadPluginsForLanguage(language: string): Promise<any[]> {
+  const plugins: any[] = [];
+  const lang = language.toLowerCase();
+
+  switch (lang) {
+    case "javascript":
+      plugins.push(await loadPlugin("babel"), await loadPlugin("estree"));
+      break;
+    case "typescript":
+      plugins.push(
+        await loadPlugin("babel"),
+        await loadPlugin("estree"),
+        await loadPlugin("typescript"),
+      );
+      break;
+    case "json":
+      plugins.push(await loadPlugin("babel"));
+      break;
+    case "css":
+    case "scss":
+    case "less":
+      plugins.push(await loadPlugin("postcss"));
+      break;
+    case "html":
+      plugins.push(await loadPlugin("html"));
+      break;
+    case "markdown":
+      plugins.push(await loadPlugin("markdown"));
+      break;
+  }
+
+  return plugins;
 }
 
 export class PrettierFormatter implements IFormatter {
@@ -68,34 +115,20 @@ export class PrettierFormatter implements IFormatter {
     settings?: FormatterSettings,
   ): Promise<FormatResult> {
     try {
-      // Ensure plugins are loaded
-      await loadPrettierPlugins();
+      const [prettierModule, plugins] = await Promise.all([
+        loadPrettier(),
+        loadPluginsForLanguage(language),
+      ]);
 
-      const plugins: any[] = [];
-
-      // Use pre-loaded plugins
-      switch (language.toLowerCase()) {
-        case "javascript":
-        case "typescript":
-          plugins.push(babelPlugin, estreePlugin, typescriptPlugin);
-          break;
-        case "json":
-          plugins.push(babelPlugin);
-          break;
-        case "css":
-        case "scss":
-        case "less":
-          plugins.push(postcssPlugin);
-          break;
-        case "html":
-          plugins.push(htmlPlugin);
-          break;
-        case "markdown":
-          plugins.push(markdownPlugin);
-          break;
+      if (plugins.length === 0) {
+        return {
+          success: false,
+          code,
+          error: `No plugins for language: ${language}`,
+        };
       }
 
-      const formatted = await prettier.format(code, {
+      const formatted = await prettierModule.format(code, {
         parser: this.getParser(language),
         plugins,
         tabWidth: settings?.indentSize ?? 2,

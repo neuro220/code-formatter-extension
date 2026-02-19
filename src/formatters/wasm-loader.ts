@@ -14,6 +14,7 @@ interface WasmModule {
 
 // Cache for initialized WASM modules
 const wasmCache = new Map<string, WasmModule>();
+const wasmLoadPromises = new Map<string, Promise<WasmModule>>();
 
 // Maximum number of errors to keep
 const MAX_ERRORS = 10;
@@ -42,10 +43,10 @@ function addError(error: WasmLoadError): void {
  * Get the base URL for WASM files in the extension
  */
 function getWasmBaseUrl(): string {
-  if (typeof chrome !== 'undefined' && chrome.runtime) {
-    return chrome.runtime.getURL('wasm/');
+  if (typeof chrome !== "undefined" && chrome.runtime) {
+    return chrome.runtime.getURL("wasm/");
   }
-  return '/wasm/';
+  return "/wasm/";
 }
 
 /**
@@ -54,7 +55,7 @@ function getWasmBaseUrl(): string {
 export function isWasmSupported(): boolean {
   try {
     return (
-      typeof WebAssembly !== 'undefined' &&
+      typeof WebAssembly !== "undefined" &&
       WebAssembly.instantiateStreaming !== undefined
     );
   } catch {
@@ -85,60 +86,81 @@ export function clearErrorHistory(): void {
  */
 export async function loadWasmFormatter(
   webJsFile: string,
-  wasmFile: string
+  wasmFile: string,
 ): Promise<WasmModule> {
-  // Check cache first
   const cacheKey = `${webJsFile}:${wasmFile}`;
+
   if (wasmCache.has(cacheKey)) {
     return wasmCache.get(cacheKey)!;
   }
 
-  // Check WASM support first
-  if (!isWasmSupported()) {
-    const error = new Error('WebAssembly is not supported in this browser');
-    addError({
-      timestamp: Date.now(),
-      module: webJsFile,
-      error: error.message,
-    });
-    console.warn('[WASM Loader] WebAssembly not supported:', webJsFile);
-    throw error;
+  if (wasmLoadPromises.has(cacheKey)) {
+    return wasmLoadPromises.get(cacheKey)!;
   }
 
-  try {
-    const baseUrl = getWasmBaseUrl();
-    const webJsUrl = `${baseUrl}${webJsFile}`;
-    const wasmUrl = `${baseUrl}${wasmFile}`;
+  const loadPromise = (async () => {
+    if (!isWasmSupported()) {
+      const error = new Error("WebAssembly is not supported in this browser");
+      addError({
+        timestamp: Date.now(),
+        module: webJsFile,
+        error: error.message,
+      });
+      console.warn("[WASM Loader] WebAssembly not supported:", webJsFile);
+      throw error;
+    }
 
-    // Dynamic import of the web version of the WASM module
-    // Using the full chrome-extension:// URL
-    const module = await import(/* @vite-ignore */ webJsUrl);
+    try {
+      const baseUrl = getWasmBaseUrl();
+      const webJsUrl = `${baseUrl}${webJsFile}`;
+      const wasmUrl = `${baseUrl}${wasmFile}`;
 
-    // Initialize the WASM module with the correct WASM binary URL
-    await module.initAsync(wasmUrl);
+      const module: any = await import(/* @vite-ignore */ webJsUrl);
 
-    // Cache the initialized module
-    wasmCache.set(cacheKey, module);
+      if (typeof module.initAsync === "function") {
+        await module.initAsync(wasmUrl);
+      } else if (typeof module.default === "function") {
+        await module.default(wasmUrl);
+      } else if (typeof module.initSync === "function") {
+        const response = await fetch(wasmUrl);
+        const buffer = await response.arrayBuffer();
+        module.initSync(buffer);
+      } else if (module.format) {
+        console.log(
+          `[WASM Loader] ${webJsFile} doesn't require initialization`,
+        );
+      } else {
+        throw new Error(
+          `WASM module ${webJsFile} has no known initialization method`,
+        );
+      }
 
-    console.log(`[WASM Loader] Successfully loaded ${webJsFile}`);
-    return module;
-  } catch (error) {
-    // Log error for debugging
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    addError({
-      timestamp: Date.now(),
-      module: webJsFile,
-      error: errorMessage,
-    });
+      wasmCache.set(cacheKey, module);
+      console.log(`[WASM Loader] Successfully loaded ${webJsFile}`);
+      return module;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      addError({
+        timestamp: Date.now(),
+        module: webJsFile,
+        error: errorMessage,
+      });
 
-    console.error(`[WASM Loader] Failed to load ${webJsFile}:`, error);
-    throw new Error(
-      `WASM formatter '${webJsFile}' failed to load. ` +
-        `This may be due to CSP restrictions or missing files. ` +
-        `Check that wasm/${wasmFile} exists and CSP allows 'wasm-unsafe-eval'. ` +
-        `Error: ${errorMessage}`
-    );
-  }
+      console.error(`[WASM Loader] Failed to load ${webJsFile}:`, error);
+      throw new Error(
+        `WASM formatter '${webJsFile}' failed to load. ` +
+          `This may be due to CSP restrictions or missing files. ` +
+          `Check that wasm/${wasmFile} exists and CSP allows 'wasm-unsafe-eval'. ` +
+          `Error: ${errorMessage}`,
+      );
+    } finally {
+      wasmLoadPromises.delete(cacheKey);
+    }
+  })();
+
+  wasmLoadPromises.set(cacheKey, loadPromise);
+  return loadPromise;
 }
 
 /**
@@ -147,7 +169,7 @@ export async function loadWasmFormatter(
  */
 export async function tryLoadWasmFormatter(
   webJsFile: string,
-  wasmFile: string
+  wasmFile: string,
 ): Promise<WasmModule | null> {
   try {
     return await loadWasmFormatter(webJsFile, wasmFile);
@@ -162,7 +184,7 @@ export async function tryLoadWasmFormatter(
  */
 export function clearWasmCache(): void {
   wasmCache.clear();
-  console.log('[WASM Loader] Cache cleared');
+  console.log("[WASM Loader] Cache cleared");
 }
 
 /**

@@ -372,6 +372,43 @@ body.code-formatter-is-loaded {
   background-color: rgba(0, 120, 212, 0.2) !important;
 }
 
+// --- Search highlights - hot pink for matches, lime green for selected ---
+// Ultra high specificity to override all theme styles
+.cm-editor .cm-content .cm-searchMatch,
+.cm-editor .cm-searchMatch,
+.cm-searchMatch {
+  background-color: rgba(255, 0, 128, 0.6) !important;
+  background: rgba(255, 0, 128, 0.6) !important;
+  outline: 2px solid #ff0080 !important;
+  border: 1px solid #ff0080 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 4px rgba(255, 0, 128, 0.8) !important;
+}
+
+.cm-editor .cm-content .cm-searchMatch-selected,
+.cm-editor .cm-searchMatch-selected,
+.cm-searchMatch-selected {
+  background-color: rgba(0, 255, 100, 0.6) !important;
+  background: rgba(0, 255, 100, 0.6) !important;
+  outline: 3px solid #00ff64 !important;
+  border: 2px solid #00ff64 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 8px rgba(0, 255, 100, 0.9) !important;
+}
+
+// Light theme adjustments
+[data-theme="light"] .cm-editor .cm-content .cm-searchMatch,
+[data-theme="light"] .cm-searchMatch {
+  background-color: rgba(255, 0, 128, 0.7) !important;
+  background: rgba(255, 0, 128, 0.7) !important;
+}
+
+[data-theme="light"] .cm-editor .cm-content .cm-searchMatch-selected,
+[data-theme="light"] .cm-searchMatch-selected {
+  background-color: rgba(0, 200, 0, 0.7) !important;
+  background: rgba(0, 200, 0, 0.7) !important;
+}
+
 // --- File Drop Zone ---
 .code-formatter-drop-zone {
   position: fixed;
@@ -433,4 +470,86 @@ body.code-formatter-is-loaded {
 .code-formatter-status-bar__filename {
   color: $success !important;
   font-weight: 500;
+}
+
+// ============================================================================
+// Search Bar
+// ============================================================================
+
+.code-formatter-search-bar {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  background: $surface-2;
+  border-radius: $radius-sm;
+  border: 1px solid $border-subtle;
+  margin-left: 4px;
+}
+
+.code-formatter-search-input {
+  all: unset;
+  width: 180px;
+  height: 24px;
+  padding: 0 8px;
+  color: $text-primary;
+  font-size: 12px;
+  font-family: $font-ui;
+  background: transparent;
+  border: none;
+  outline: none;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.code-formatter-search-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: $text-secondary;
+  cursor: pointer;
+  border-radius: 3px;
+  transition:
+    background $transition-fast,
+    color $transition-fast;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.8;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: $text-primary;
+
+    svg {
+      opacity: 1;
+    }
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.code-formatter-search-close {
+  margin-left: 2px;
+}
+
+.code-formatter-search-count {
+  font-size: 11px;
+  color: $text-secondary;
+  padding: 0 6px;
+  white-space: nowrap;
+  font-family: $font-ui;
 }

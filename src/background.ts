@@ -18,50 +18,24 @@ import type {
   GetSupportedLanguagesResponse,
   CheckLanguageSupportResponse,
 } from "./shared/types";
-import { LANGUAGE_DEFAULTS } from "./shared/constants";
-
-// ============================================================================
-// Formatting Cache
-// ============================================================================
+import {
+  LANGUAGE_DEFAULTS,
+  CONTEXT_MENU_LANGUAGE_MAP,
+} from "./shared/constants";
 
 const formatCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 50;
 
-// Maximum code size to prevent DoS (1MB)
 const MAX_CODE_SIZE = 1024 * 1024;
 
-// Rate limiting: Track requests per tab to prevent abuse
 interface RateLimitEntry {
   count: number;
   resetTime: number;
 }
 
 const rateLimitMap = new Map<number, RateLimitEntry>();
-const RATE_LIMIT_WINDOW = 1000; // 1 second window
-const RATE_LIMIT_MAX = 10; // Max 10 requests per window per tab
-
-// Supported languages for validation
-const SUPPORTED_LANGUAGES = [
-  "javascript",
-  "typescript",
-  "json",
-  "css",
-  "scss",
-  "less",
-  "html",
-  "xml",
-  "python",
-  "markdown",
-  "go",
-  "rust",
-  "sql",
-  "yaml",
-  "toml",
-  "ruby",
-  "lua",
-  "zig",
-  "dart",
-];
+const RATE_LIMIT_WINDOW = 1000;
+const RATE_LIMIT_MAX = 10;
 
 /**
  * Validates the sender of a message to prevent unauthorized access
@@ -153,8 +127,7 @@ function validateFormatMessage(msg: unknown): string | null {
   if (formatMsg.language.length === 0) {
     return 'Parameter "language" cannot be empty';
   }
-  // Validate language is supported
-  if (!SUPPORTED_LANGUAGES.includes(formatMsg.language.toLowerCase())) {
+  if (!formatterRegistry.isSupported(formatMsg.language)) {
     return `Unsupported language: ${formatMsg.language}`;
   }
 
@@ -228,12 +201,31 @@ function convertSettings(
 /**
  * Format code using the formatter registry, with caching
  */
+const FORMAT_TIMEOUT_MS = 10000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms`));
+    }, ms);
+
+    promise
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function formatCode(
   code: string,
   language: string,
   settings?: FormatMessage["settings"],
 ): Promise<FormatResult> {
-  // Check if language is supported
   if (!formatterRegistry.isSupported(language)) {
     return {
       success: false,
@@ -242,7 +234,6 @@ async function formatCode(
     };
   }
 
-  // Check cache
   const formatterSettings = convertSettings(settings, language);
   const key = await hashKey(code, language, formatterSettings);
   const cached = formatCache.get(key);
@@ -250,28 +241,34 @@ async function formatCode(
     return { success: true, code: cached };
   }
 
-  // Format using registry
-  const result = await formatterRegistry.format(
-    code,
-    language,
-    formatterSettings,
-  );
+  try {
+    const result = await withTimeout(
+      formatterRegistry.format(code, language, formatterSettings),
+      FORMAT_TIMEOUT_MS,
+    );
 
-  // Store in cache if successful (LRU eviction)
-  if (result.success) {
-    // Evict oldest entries if cache is full or would exceed limit
-    while (formatCache.size >= MAX_CACHE_SIZE && formatCache.size > 0) {
-      const firstKey = formatCache.keys().next().value;
-      if (firstKey === undefined) break;
-      formatCache.delete(firstKey);
+    if (result.success) {
+      while (formatCache.size >= MAX_CACHE_SIZE && formatCache.size > 0) {
+        const firstKey = formatCache.keys().next().value;
+        if (firstKey === undefined) break;
+        formatCache.delete(firstKey);
+      }
+      if (formatCache.size < MAX_CACHE_SIZE) {
+        formatCache.set(key, result.code);
+      }
     }
-    // Only add if we successfully evicted or there's space
-    if (formatCache.size < MAX_CACHE_SIZE) {
-      formatCache.set(key, result.code);
-    }
+
+    return result;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Formatting failed";
+    console.error("[Code Formatter] Format error:", errorMessage);
+    return {
+      success: false,
+      code,
+      error: errorMessage,
+    };
   }
-
-  return result;
 }
 
 // ============================================================================
@@ -459,26 +456,13 @@ function setupContextMenu(): void {
   chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (!tab?.id || !info.selectionText) return;
 
-    // Validate selection text size
     if (info.selectionText.length > MAX_CODE_SIZE) {
       console.warn("[Code Formatter] Selection too large to format");
       return;
     }
 
-    const languageMap: Record<string, string> = {
-      formatJS: "javascript",
-      formatTS: "typescript",
-      formatCSS: "css",
-      formatHTML: "html",
-      formatJSON: "json",
-      formatPython: "python",
-      formatGo: "go",
-      formatSQL: "sql",
-      formatYAML: "yaml",
-      formatTOML: "toml",
-    };
-
-    const language = languageMap[info.menuItemId as string];
+    const language = CONTEXT_MENU_LANGUAGE_MAP[info.menuItemId as string];
+    if (!language) return;
     if (!language) return;
 
     // Send message with error handling

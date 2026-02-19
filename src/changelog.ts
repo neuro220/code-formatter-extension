@@ -40,28 +40,33 @@ interface ChangelogData {
  * The changelog data containing version information and categorized changes
  */
 const changelogData: ChangelogData = {
-  version: "1.9.2",
-  date: "2026-02-13",
+  version: "1.9.4",
+  date: "2026-02-19",
   changes: [
     {
-      type: "New Features",
+      type: "New",
       items: [
-        "<strong>New Themes</strong>: Added Dracula, Nord, Monokai, Material, GitHub, Solarized, and Tokyo Night themes.",
-        "<strong>Toggle Button Indicators</strong>: Active buttons now show visual highlighting to indicate ON/OFF state.",
+        "<strong>Search in Editor</strong>: Added search bar with visible highlights. Press Find button or Ctrl+F to search. Matches shown in pink, selected match in green.",
       ],
     },
     {
       type: "Improved",
       items: [
-        "<strong>Performance Optimization</strong>: Added lazy loading, deferred initialization, and content-script caching for faster page loads.",
-        "<strong>Improved Code Detection</strong>: Better detection of code pages via URL patterns and DOM elements.",
+        "<strong>Architecture</strong>: Refactored codebase into modular structure for better maintainability.",
+        "<strong>Performance</strong>: Added lazy loading for themes and Prettier plugins. Large files (50k+ lines) are handled gracefully.",
       ],
     },
     {
       type: "Fixed",
       items: [
-        "<strong>Extension Reliability</strong>: Fixed issue where extension didn't always inject on code pages, causing inconsistent behavior.",
-        "<strong>Original View</strong>: Added top padding when viewing original code to prevent toolbar overlap.",
+        "<strong>Search Highlights</strong>: Fixed search matches being invisible on some themes by using custom decorations.",
+        "<strong>Toolbar Icons</strong>: Fixed collapse/expand buttons not displaying.",
+      ],
+    },
+    {
+      type: "Removed",
+      items: [
+        "<strong>Word Wrap</strong>: Removed word wrap toggle from toolbar and status bar.",
       ],
     },
   ],

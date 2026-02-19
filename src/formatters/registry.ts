@@ -1,15 +1,15 @@
-import type { IFormatter, FormatResult, FormatterSettings } from './types';
-import { normalizeLanguage } from './types';
-import { PrettierFormatter } from './prettier-formatter';
-import { JsBeautifyFormatter } from './js-beautify-formatter';
-import { FallbackFormatter } from './fallback-formatter';
+import type { IFormatter, FormatResult, FormatterSettings } from "./types";
+import { normalizeLanguage } from "./types";
+import { PrettierFormatter } from "./prettier-formatter";
+import { JsBeautifyFormatter } from "./js-beautify-formatter";
+import { FallbackFormatter } from "./fallback-formatter";
 import {
   RuffFormatter,
   GofmtFormatter,
   SqlFormatter,
   YamlFormatter,
   TomlFormatter,
-} from './wasm-formatters';
+} from "./wasm-formatters";
 
 /**
  * Registry that manages all available formatters
@@ -45,7 +45,7 @@ export class FormatterRegistry {
     this.formatters.set(formatter.metadata.id, formatter);
 
     // Map languages to this formatter
-    formatter.metadata.languages.forEach(lang => {
+    formatter.metadata.languages.forEach((lang) => {
       const normalized = normalizeLanguage(lang);
       // If multiple formatters support a language, the last one registered wins
       // (Prettier overrides js-beautify for web languages)
@@ -81,7 +81,7 @@ export class FormatterRegistry {
   async format(
     code: string,
     language: string,
-    settings?: FormatterSettings
+    settings?: FormatterSettings,
   ): Promise<FormatResult> {
     const formatter = this.getFormatter(language);
 
@@ -122,9 +122,12 @@ export class FormatterRegistry {
    */
   getFormattersForLanguage(language: string): IFormatter[] {
     const normalized = normalizeLanguage(language);
-    return this.getAllFormatters().filter(f =>
-      f.metadata.languages.some(l => normalizeLanguage(l) === normalized)
-    );
+    const formatterId = this.languageMap.get(normalized);
+    if (formatterId) {
+      const formatter = this.formatters.get(formatterId);
+      return formatter ? [formatter] : [];
+    }
+    return [];
   }
 }
 

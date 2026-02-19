@@ -1,11 +1,61 @@
-/**
- * Shared constants across the extension
- */
-
 import type { ExtensionSettings } from "./types";
-import type { LanguageDefaults } from "../formatters/types";
 
-/** DOM element IDs used by the content script */
+export const LANGUAGES_BY_EXTENSION: Record<string, string> = {
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  json: "json",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  html: "html",
+  htm: "html",
+  xml: "xml",
+  svg: "xml",
+  py: "python",
+  pyi: "python",
+  pyw: "python",
+  md: "markdown",
+  mdx: "markdown",
+  go: "go",
+  rs: "rust",
+  sql: "sql",
+  yml: "yaml",
+  yaml: "yaml",
+  toml: "toml",
+  rb: "ruby",
+  lua: "lua",
+  zig: "zig",
+  dart: "dart",
+};
+
+export const EXTENSION_MAP = LANGUAGES_BY_EXTENSION;
+
+export const EXTENSIONS_BY_LANGUAGE: Record<string, string> = {
+  javascript: "js",
+  typescript: "ts",
+  json: "json",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  html: "html",
+  xml: "xml",
+  python: "py",
+  markdown: "md",
+  go: "go",
+  rust: "rs",
+  sql: "sql",
+  yaml: "yml",
+  toml: "toml",
+  ruby: "rb",
+  lua: "lua",
+  zig: "zig",
+  dart: "dart",
+};
+
 export const ELEMENT_IDS = {
   RENDERER: "code-formatter-renderer",
   TOOLBAR: "code-formatter-toolbar",
@@ -22,7 +72,6 @@ export const ELEMENT_IDS = {
   FILE_INPUT: "code-formatter-file-input",
 } as const;
 
-/** CSS class names */
 export const CSS_CLASSES = {
   TOOLBAR: "code-formatter-toolbar",
   TOOLBAR_BUTTON: "code-formatter-toolbar__button",
@@ -39,13 +88,9 @@ export const CSS_CLASSES = {
   DROP_ZONE_DRAGOVER: "code-formatter-drop-zone--dragover",
 } as const;
 
-/** Color constants for UI elements */
 export const COLORS = {
-  // Status colors
-  ACTIVE: "#73c991", // Green for active state
-  INACTIVE: "#5a5a5a", // Muted for inactive state
-
-  // Editor theme backgrounds (fallback)
+  ACTIVE: "#73c991",
+  INACTIVE: "#5a5a5a",
   EDITOR_BG_LIGHT: "#ffffff",
   EDITOR_BG_DARK: "#282c34",
   EDITOR_FG_LIGHT: "#24292e",
@@ -56,49 +101,6 @@ export const COLORS = {
   GUTTER_FG_DARK: "#636d83",
 } as const;
 
-/**
- * File extension to language mapping for URL-based detection
- * Note: This is used for URL extension detection, not file loading
- * For file loading, use getLanguageFromFilename from shared/utils.ts
- */
-export const EXTENSION_MAP: Record<string, string> = {
-  // JavaScript/TypeScript
-  js: "javascript",
-  jsx: "javascript",
-  mjs: "javascript",
-  cjs: "javascript",
-  ts: "typescript",
-  tsx: "typescript",
-  // Data formats
-  json: "json",
-  // Stylesheets - map to their specific languages
-  css: "css",
-  scss: "scss",
-  less: "less",
-  // Markup
-  html: "html",
-  htm: "html",
-  xml: "xml",
-  svg: "xml",
-  // Python
-  py: "python",
-  pyi: "python",
-  pyw: "python",
-  // Other languages
-  md: "markdown",
-  go: "go",
-  rs: "rust",
-  sql: "sql",
-  yml: "yaml",
-  yaml: "yaml",
-  toml: "toml",
-  rb: "ruby",
-  lua: "lua",
-  zig: "zig",
-  dart: "dart",
-};
-
-/** Available themes */
 export const AVAILABLE_THEMES = [
   { value: "one-dark-pro", label: "One Dark Pro" },
   { value: "dracula", label: "Dracula" },
@@ -112,7 +114,13 @@ export const AVAILABLE_THEMES = [
   { value: "tokyo-night", label: "Tokyo Night" },
 ] as const;
 
-/** Default extension settings */
+export const PERFORMANCE_THRESHOLDS = {
+  LARGE_FILE_LINES: 10000,
+  HUGE_FILE_LINES: 50000,
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  CHUNK_SIZE: 5000,
+} as const;
+
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   indentSize: 2,
   quoteStyle: "single",
@@ -121,102 +129,68 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   fontSize: "14",
   lineHeight: 1.6,
   useTabs: false,
-  // Formatter options
   singleQuote: true,
   semi: true,
   trailingComma: "es5",
-  // js-beautify options
   e4x: false,
   spaceInEmptyParens: false,
   unescapeStrings: false,
   keepArrayIndentation: false,
-  // WASM formatter options
   quoteStyleWasm: "preserve",
   keywordCase: "preserve",
   commaPosition: "before",
-  // Feature flags
   autoFormatOnType: false,
   formatOnPasteMinLength: 5,
 };
 
-/** Language-specific default settings based on community standards */
-export const LANGUAGE_DEFAULTS: Record<string, LanguageDefaults> = {
-  javascript: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: true,
-    semi: true,
-  },
-  typescript: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: true,
-    semi: true,
-  },
-  python: {
-    indentSize: 4,
-    useTabs: false,
-    singleQuote: true,
-    semi: true,
-  },
-  go: {
-    indentSize: 4,
-    useTabs: true, // gofmt standard
-    singleQuote: true,
-    semi: true,
-  },
-  java: {
-    indentSize: 4,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  css: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  html: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  json: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false, // JSON requires double quotes
-    semi: true,
-  },
-  rust: {
-    indentSize: 4,
-    useTabs: false,
-    singleQuote: true,
-    semi: true,
-  },
-  sql: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  yaml: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  toml: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
-  markdown: {
-    indentSize: 2,
-    useTabs: false,
-    singleQuote: false,
-    semi: true,
-  },
+export const LANGUAGE_DEFAULTS: Record<
+  string,
+  { indentSize: number; useTabs: boolean; singleQuote: boolean; semi: boolean }
+> = {
+  javascript: { indentSize: 2, useTabs: false, singleQuote: true, semi: true },
+  typescript: { indentSize: 2, useTabs: false, singleQuote: true, semi: true },
+  python: { indentSize: 4, useTabs: false, singleQuote: true, semi: true },
+  go: { indentSize: 4, useTabs: true, singleQuote: true, semi: true },
+  java: { indentSize: 4, useTabs: false, singleQuote: false, semi: true },
+  css: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  html: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  json: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  rust: { indentSize: 4, useTabs: false, singleQuote: true, semi: true },
+  sql: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  yaml: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  toml: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+  markdown: { indentSize: 2, useTabs: false, singleQuote: false, semi: true },
+};
+
+export const FORMATTABLE_LANGUAGES = new Set([
+  "javascript",
+  "typescript",
+  "json",
+  "css",
+  "scss",
+  "html",
+  "xml",
+  "python",
+  "go",
+  "rust",
+  "sql",
+  "yaml",
+  "toml",
+  "ruby",
+  "lua",
+  "zig",
+  "dart",
+]);
+
+export const CONTEXT_MENU_LANGUAGE_MAP: Record<string, string> = {
+  formatJS: "javascript",
+  formatTS: "typescript",
+  formatCSS: "css",
+  formatHTML: "html",
+  formatJSON: "json",
+  formatPython: "python",
+  formatGo: "go",
+  formatSQL: "sql",
+  formatYAML: "yaml",
+  formatTOML: "toml",
 };

@@ -3,10 +3,13 @@
  * Handles reading local files with size limits and language detection
  */
 
-import { getLanguageFromFilename, formatFileSize } from '../shared/utils';
+import { getLanguageFromFilename, formatFileSize } from "../shared/utils";
 
 // Re-export for backward compatibility
-export { formatFileSize, getLanguageFromFilename as detectLanguageFromFilename };
+export {
+  formatFileSize,
+  getLanguageFromFilename as detectLanguageFromFilename,
+};
 
 /**
  * File metadata information
@@ -38,7 +41,7 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 /**
  * File size limit in human-readable format
  */
-export const MAX_FILE_SIZE_LABEL = '10MB';
+export const MAX_FILE_SIZE_LABEL = "10MB";
 
 /**
  * Read a local file and return its content
@@ -79,7 +82,7 @@ export async function readLocalFile(file: File): Promise<string> {
           errorMessage = `File reading aborted: ${file.name}`;
           break;
         default:
-          errorMessage = `Failed to read file: ${file.name}${errorCode !== undefined ? ` (Error code: ${errorCode})` : ''}`;
+          errorMessage = `Failed to read file: ${file.name}${errorCode !== undefined ? ` (Error code: ${errorCode})` : ""}`;
       }
 
       reject(new Error(errorMessage));
@@ -90,7 +93,7 @@ export async function readLocalFile(file: File): Promise<string> {
     };
 
     // Use UTF-8 encoding explicitly
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file, "UTF-8");
   });
 }
 
@@ -103,7 +106,7 @@ export function getFileMetadata(file: File): LoadedFileInfo {
     path: file.webkitRelativePath || file.name,
     size: file.size,
     lastModified: new Date(file.lastModified),
-    mimeType: file.type || 'text/plain',
+    mimeType: file.type || "text/plain",
   };
 }
 
@@ -115,7 +118,7 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   if (!file) {
     return {
       valid: false,
-      error: 'No file provided',
+      error: "No file provided",
     };
   }
 
@@ -123,7 +126,7 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   if (!file.name) {
     return {
       valid: false,
-      error: 'File has no name',
+      error: "File has no name",
     };
   }
 
@@ -144,25 +147,25 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   }
 
   // Check if file type is text-based
-  const mime = file.type || '';
+  const mime = file.type || "";
   const textMimeTypes = [
-    'text/',
-    'application/json',
-    'application/javascript',
-    'application/xml',
-    'application/x-httpd-php',
-    'application/x-python-code',
+    "text/",
+    "application/json",
+    "application/javascript",
+    "application/xml",
+    "application/x-httpd-php",
+    "application/x-python-code",
   ];
   const isTextFile =
-    textMimeTypes.some(type => mime.startsWith(type)) ||
+    textMimeTypes.some((type) => mime.startsWith(type)) ||
     file.name.match(
-      /\.(js|ts|jsx|tsx|json|css|scss|less|html|htm|xml|md|py|go|rs|sql|yml|yaml|toml|rb|lua|zig|dart)$/i
+      /\.(js|ts|jsx|tsx|json|css|scss|less|html|htm|xml|md|py|go|rs|sql|yml|yaml|toml|rb|lua|zig|dart)$/i,
     );
 
   if (!isTextFile) {
     return {
       valid: false,
-      error: `Unsupported file type: ${mime || 'unknown'}`,
+      error: `Unsupported file type: ${mime || "unknown"}`,
     };
   }
 
@@ -187,7 +190,7 @@ export async function loadFile(file: File): Promise<FileLoadResult> {
     const code = await Promise.race([
       readLocalFile(file),
       new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('File reading timeout')), 30000)
+        setTimeout(() => reject(new Error("File reading timeout")), 30000),
       ),
     ]);
 
@@ -212,11 +215,11 @@ export async function loadFile(file: File): Promise<FileLoadResult> {
     };
   } catch (error) {
     // Handle different types of errors
-    let errorMessage = 'Failed to load file';
+    let errorMessage = "Failed to load file";
 
     if (error instanceof Error) {
       errorMessage = error.message;
-    } else if (typeof error === 'string') {
+    } else if (typeof error === "string") {
       errorMessage = error;
     }
 
@@ -232,12 +235,11 @@ export async function loadFile(file: File): Promise<FileLoadResult> {
  * Continues loading even if some files fail
  */
 export async function loadFiles(files: File[]): Promise<FileLoadResult[]> {
-  // Validate input
   if (!files || !Array.isArray(files)) {
     return [
       {
         success: false,
-        error: 'Invalid files array provided',
+        error: "Invalid files array provided",
       },
     ];
   }
@@ -246,25 +248,23 @@ export async function loadFiles(files: File[]): Promise<FileLoadResult[]> {
     return [];
   }
 
-  const results: FileLoadResult[] = [];
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        return await loadFile(file);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Unknown error occurred while loading file";
 
-  for (const file of files) {
-    try {
-      const result = await loadFile(file);
-      results.push(result);
-    } catch (error) {
-      // Handle unexpected errors gracefully
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Unknown error occurred while loading file';
-
-      results.push({
-        success: false,
-        error: errorMessage,
-      });
-    }
-  }
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+    }),
+  );
 
   return results;
 }

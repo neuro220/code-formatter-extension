@@ -93,18 +93,6 @@ export type ExtensionMessage =
 /** Notification types for toast system */
 export type NotificationType = "success" | "error" | "warning" | "info";
 
-/**
- * Format result from background script
- */
-export interface FormatResult {
-  success: boolean;
-  code: string;
-  error?: string;
-}
-
-/**
- * Response types for background script messages
- */
 export interface GetSupportedLanguagesResponse {
   success: boolean;
   languages: string[];

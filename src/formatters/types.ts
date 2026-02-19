@@ -1,24 +1,19 @@
 export interface FormatterSettings {
   indentSize: number;
   useTabs: boolean;
-  // Prettier & js-beautify options
   singleQuote?: boolean;
   semi?: boolean;
   trailingComma?: "none" | "es5" | "all";
-  // js-beautify options
   e4x?: boolean;
   spaceInEmptyParens?: boolean;
   unescapeStrings?: boolean;
   keepArrayIndentation?: boolean;
-  // WASM formatter options
   quoteStyle?: "single" | "double" | "preserve";
   keywordCase?: "upper" | "lower" | "preserve";
   commaPosition?: "before" | "after";
-  // TOML formatter options
   alignEntries?: boolean;
   alignComments?: boolean;
   indentTables?: boolean;
-  // Feature flags
   autoFormatOnType?: boolean;
   formatOnPasteMinLength?: number;
 }
@@ -60,46 +55,15 @@ export interface IFormatter {
   isAvailable(): boolean;
 }
 
-export const LANGUAGE_MAP: Record<string, string> = {
+const LANGUAGE_ALIASES: Record<string, string> = {
   js: "javascript",
-  jsx: "javascript",
   ts: "typescript",
-  tsx: "typescript",
-  mjs: "javascript",
-  cjs: "javascript",
-  json: "json",
-  css: "css",
-  scss: "scss",
-  less: "less",
-  html: "html",
-  htm: "html",
-  xml: "xml",
-  svg: "xml", // SVG is XML-based
   py: "python",
-  pyi: "python",
-  pyw: "python",
-  go: "go",
   rs: "rust",
-  sql: "sql",
+  golang: "go",
   yml: "yaml",
-  yaml: "yaml",
-  toml: "toml",
-  md: "markdown",
-  mdx: "markdown",
-  lua: "lua",
-  zig: "zig",
-  dart: "dart",
-  rb: "ruby",
 };
 
 export function normalizeLanguage(language: string): string {
-  const aliases: Record<string, string> = {
-    js: "javascript",
-    ts: "typescript",
-    py: "python",
-    rs: "rust",
-    golang: "go",
-    yml: "yaml",
-  };
-  return aliases[language.toLowerCase()] || language.toLowerCase();
+  return LANGUAGE_ALIASES[language.toLowerCase()] || language.toLowerCase();
 }
